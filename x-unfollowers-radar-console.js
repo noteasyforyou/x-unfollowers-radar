@@ -1,6 +1,6 @@
 /**
  * X Unfollowers Radar (Chrome Console Edition)
- * 极速版 - 专为 Chrome 控制台 (F12) 或 Snippets 设计
+ * 极速版 V4.6 - 专为 Chrome 控制台 (F12) 或 Snippets 设计
  * 无需油猴插件，直接粘贴到 Console 运行即可，或保存在 Chrome 的 Snippets 中。
  */
 
@@ -14,12 +14,17 @@
     }
     window._xRadarRunning = true;
 
-    console.log("%c🚀 [X Unfollowers Radar] 已启动！前往 Following 列表向下滚动即可查看高亮！", "color: #00ba7c; font-size: 14px; font-weight: bold;");
+    console.log("%c🚀 [X Unfollowers Radar] V4.6 已启动！前往 Following 列表向下滚动即可查看高亮！", "color: #00ba7c; font-size: 14px; font-weight: bold;");
 
     const followsYouTexts = new Set([
         'Follows you', '关注了你', '關注了你', '跟你互相追隨', '追隨了你',
         'フォローされています', '나를 팔로우합니다', 'Te sigue', 'Vous suit',
         'Folgt dir', 'Segue você', 'Ti segue', 'Твиттер читает вас', 'يتابعك'
+    ]);
+
+    // 【优化】抽取出的全局忽略列表 O(1)
+    const IGNORED_USERNAMES = new Set([
+        'search', 'explore', 'notifications', 'messages', 'home', 'settings', 'i'
     ]);
 
     const unfollowersSet = new Set();
@@ -38,16 +43,19 @@
             statsPanel.style.cssText = 'position: fixed; bottom: 20px; right: 20px; z-index: 999999; background: rgba(0,0,0,0.8); color: #fff; padding: 10px 15px; border-radius: 8px; font-size: 13px; font-family: monospace; pointer-events: none; border: 1px solid #333; transition: all 0.2s;';
             document.body.appendChild(statsPanel);
         }
-        statsPanel.innerHTML = `[雷达 Console版] 极速扫描中... <br> 💔页面发现未回关: ${unfCount}`;
+        statsPanel.innerHTML = `[雷达 4.6 控制台版] 极速扫描中... <br> 💔页面发现未回关: ${unfCount}`;
     }
 
     function appendBadge(cell, username, badge) {
-        const textDivs = cell.querySelectorAll('[dir="ltr"]');
+        // 【优化】更精准的定位及防御性判空
+        const textDivs = cell.querySelectorAll('span');
         let inserted = false;
         for (let t of textDivs) {
             if (t.textContent.toLowerCase() === '@' + username) {
-                t.parentElement.appendChild(badge);
-                inserted = true;
+                if (t.parentElement) {
+                    t.parentElement.appendChild(badge);
+                    inserted = true;
+                }
                 break;
             }
         }
@@ -71,20 +79,31 @@
             if (parts.length < 2 || !parts[1]) return;
             
             const username = parts[1].toLowerCase();
-            if (['search', 'explore', 'notifications', 'messages', 'home', 'settings', 'i'].includes(username)) return;
+            
+            // 【优化】使用 Set 进行 O(1) 判断
+            if (IGNORED_USERNAMES.has(username)) return;
 
-            if (cell.dataset.radarScanned === username) return;
+            const followBtn = cell.querySelector('[data-testid$="-unfollow"]');
+            const isFollowing = !!followBtn;
 
+            // 【优化】联合键缓存：用户名 + 关注状态
+            const cacheKey = `${username}_${isFollowing}`;
+            if (cell.dataset.radarScanned === cacheKey) return;
+
+            // 清除旧样式和徽章
             const oldBadge = cell.querySelector('.x-radar-badge-cell');
             if (oldBadge) oldBadge.remove();
             cell.style.border = '';
             cell.style.backgroundColor = '';
             cell.style.borderRadius = '';
 
-            cell.dataset.radarScanned = username;
+            cell.dataset.radarScanned = cacheKey;
 
-            const followBtn = cell.querySelector('[data-testid$="-unfollow"]');
-            if (!followBtn) return; // 没有正在关注按钮，说明我没关注TA，跳过
+            // 如果当前已经不是“正在关注”状态，如果TA之前在未回关集合里，需要剔除并退出
+            if (!isFollowing) {
+                unfollowersSet.delete(username);
+                return;
+            }
 
             let isFollowedBy = false;
             const spans = cell.querySelectorAll('span');
