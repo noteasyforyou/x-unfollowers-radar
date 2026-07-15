@@ -1,0 +1,19 @@
+{
+  "name": "x-unfollowers-radar",
+  "version": "1.0.0",
+  "description": "Find who doesn't follow you back on X (Twitter)",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler pages dev public",
+    "deploy": "wrangler pages deploy public"
+  },
+  "dependencies": {
+    "hono": "^4.0.0"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

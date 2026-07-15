@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>X Unfollowers Radar — 谁没回关你</title>
+  <meta name="description" content="一键发现 X (Twitter) 上谁没有回关你。支持 OAuth 登录和本地归档解析，100% 隐私安全。" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+
+  <!-- ==================== Landing View ==================== -->
+  <div id="landing-view" class="view active">
+    <div class="landing-container">
+      <div class="hero">
+        <div class="logo-icon">🔍</div>
+        <h1>X Unfollowers <span class="gradient-text">Radar</span></h1>
+        <p class="tagline">一键发现谁没有回关你</p>
+        <p class="subtitle">Find out who doesn't follow you back on X</p>
+      </div>
+
+      <div class="auth-section">
+        <button id="login-btn" class="btn btn-primary btn-lg">
+          <svg class="x-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+          </svg>
+          用 X 账号登录
+        </button>
+        <p class="auth-note">仅申请只读权限，不会发推或修改任何数据</p>
+      </div>
+
+      <div class="divider"><span>或</span></div>
+
+      <div class="archive-section">
+        <div class="archive-upload-area" id="archive-drop-zone">
+          <div class="upload-icon">📦</div>
+          <p class="upload-title">上传 X 数据归档 ZIP</p>
+          <p class="upload-hint">拖拽文件到此处，或点击选择文件</p>
+          <input type="file" id="archive-input" accept=".zip" hidden />
+        </div>
+        <p class="archive-note">
+          从 X 设置 → 你的账号 → 下载数据归档 获取
+        </p>
+      </div>
+
+      <div id="error-banner" class="error-banner" hidden>
+        <span id="error-message"></span>
+        <button id="error-close" class="error-close">&times;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Scanning View ==================== -->
+  <div id="scanning-view" class="view">
+    <div class="scanning-container">
+      <div class="scanner-animation">
+        <div class="scanner-ring ring-1"></div>
+        <div class="scanner-ring ring-2"></div>
+        <div class="scanner-ring ring-3"></div>
+        <div class="scanner-icon">🔍</div>
+      </div>
+      <h2 class="scanning-title">正在扫描...</h2>
+      <p id="scan-status" class="scan-status">正在获取你的关注列表和粉丝列表</p>
+      <div class="progress-bar-container">
+        <div id="scan-progress" class="progress-bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Dashboard View ==================== -->
+  <div id="dashboard-view" class="view">
+    <header class="dashboard-header">
+      <div class="header-left">
+        <h1 class="header-title">🔍 <span class="gradient-text">Radar</span></h1>
+      </div>
+      <div class="header-right">
+        <div id="user-info" class="user-info">
+          <img id="user-avatar" class="user-info-avatar" src="" alt="avatar" />
+          <span id="user-name" class="user-info-name"></span>
+        </div>
+        <button id="rescan-btn" class="btn btn-outline btn-sm">🔄 重新扫描</button>
+        <button id="logout-btn" class="btn btn-outline btn-sm">退出</button>
+      </div>
+    </header>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">👤</div>
+        <div class="stat-value" id="stat-following">0</div>
+        <div class="stat-label">我关注的</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">👥</div>
+        <div class="stat-value" id="stat-followers">0</div>
+        <div class="stat-label">关注我的</div>
+      </div>
+      <div class="stat-card stat-card-success">
+        <div class="stat-icon">🤝</div>
+        <div class="stat-value" id="stat-mutual">0</div>
+        <div class="stat-label">互相关注</div>
+      </div>
+      <div class="stat-card stat-card-danger">
+        <div class="stat-icon">💔</div>
+        <div class="stat-value" id="stat-not-following-back">0</div>
+        <div class="stat-label">没回关我</div>
+      </div>
+      <div class="stat-card stat-card-warning">
+        <div class="stat-icon">🙈</div>
+        <div class="stat-value" id="stat-fans">0</div>
+        <div class="stat-label">我没回关</div>
+      </div>
+    </div>
+
+    <!-- History comparison banner -->
+    <div id="history-banner" class="history-banner" hidden>
+      <span class="history-icon">📅</span>
+      <span id="history-message"></span>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="tab-bar">
+        <button class="tab active" data-tab="not-following-back">💔 没回关我</button>
+        <button class="tab" data-tab="fans">🙈 我没回关</button>
+        <button class="tab" data-tab="mutual">🤝 互相关注</button>
+      </div>
+      <div class="toolbar-right">
+        <div class="search-bar">
+          <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M10.25 3.75c-3.59 0-6.5 2.91-6.5 6.5s2.91 6.5 6.5 6.5c1.795 0 3.419-.726 4.596-1.904 1.178-1.177 1.904-2.801 1.904-4.596 0-3.59-2.91-6.5-6.5-6.5zm-8.5 6.5c0-4.694 3.806-8.5 8.5-8.5s8.5 3.806 8.5 8.5c0 1.986-.682 3.815-1.824 5.262l4.781 4.781-1.414 1.414-4.781-4.781c-1.447 1.142-3.276 1.824-5.262 1.824-4.694 0-8.5-3.806-8.5-8.5z"/>
+          </svg>
+          <input type="text" id="search-input" placeholder="搜索用户..." />
+        </div>
+        <button id="export-btn" class="btn btn-outline btn-sm">📤 导出 CSV</button>
+      </div>
+    </div>
+
+    <!-- User List -->
+    <div id="user-list-container" class="user-list-container">
+      <div id="user-list" class="user-list"></div>
+      <div id="empty-state" class="empty-state" hidden>
+        <div class="empty-icon">🎉</div>
+        <p class="empty-text"></p>
+      </div>
+      <div id="list-count" class="list-count"></div>
+    </div>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,14 @@
+# X (Twitter) API Credentials
+# Create an app at https://developer.twitter.com/en/portal/dashboard
+# Required scopes: users.read, follows.read, tweet.read, offline.access
+X_CLIENT_ID=your_client_id_here
+X_CLIENT_SECRET=your_client_secret_here
+
+# For local development (Wrangler defaults to 8788):
+CALLBACK_URL=http://localhost:8788/auth/callback
+
+# For production (change this to your actual CF Pages domain in CF Dashboard):
+# CALLBACK_URL=https://your-app.pages.dev/auth/callback
+
+# Secret key for encrypting cookies (Make up a random string)
+SESSION_SECRET=super_secret_key_change_me
