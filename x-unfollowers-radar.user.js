@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         X Unfollowers Radar
 // @namespace    http://tampermonkey.net/
-// @version      4.7
-// @description  完美版 - 极速单向关注高亮（解决异步渲染导致的假阳性误判，增强多语言与 DOM 容错）
+// @version      4.8
+// @description  完美双语版 - 极速单向关注高亮（解决异步渲染问题，支持中英双语自适应）
 // @author       You
 // @match        *://x.com/*
 // @match        *://twitter.com/*
@@ -12,7 +12,15 @@
 (function() {
     'use strict';
 
-    // 全部转为小写，防备大小写变体
+    // 判断当前推特页面语言是否为中文 (zh-CN, zh-Hant 等)
+    const isChinese = document.documentElement.lang.startsWith('zh');
+    const i18n = {
+        badgeText: isChinese ? '💔 未回关' : '💔 Not following back',
+        radarTitle: isChinese ? '[雷达 4.8]' : '[Radar 4.8]',
+        scanning: isChinese ? '极速扫描中...' : 'Scanning...',
+        found: isChinese ? '💔页面发现未回关' : '💔 Unfollowers found'
+    };
+
     const followsYouTexts = new Set([
         'follows you', '关注了你', '關注了你', '跟你互相追隨', '追隨了你',
         'フォローされています', '나를 팔로우합니다', 'te sigue', 'vous suit',
@@ -31,11 +39,7 @@
         if (!document.body) return;
         
         const unfCount = unfollowersSet.size;
-        
-        if (unfCount === lastUnfCount && statsPanel) {
-            return; 
-        }
-        
+        if (unfCount === lastUnfCount && statsPanel) return; 
         lastUnfCount = unfCount;
 
         if (!statsPanel) {
@@ -43,7 +47,7 @@
             statsPanel.style.cssText = 'position: fixed; bottom: 20px; right: 20px; z-index: 999999; background: rgba(0,0,0,0.8); color: #fff; padding: 10px 15px; border-radius: 8px; font-size: 13px; font-family: monospace; pointer-events: none; border: 1px solid #333; transition: all 0.2s;';
             document.body.appendChild(statsPanel);
         }
-        statsPanel.innerHTML = `[雷达 4.7] 极速扫描中... <br> 💔页面发现未回关: ${unfCount}`;
+        statsPanel.innerHTML = `${i18n.radarTitle} ${i18n.scanning} <br> ${i18n.found}: ${unfCount}`;
     }
 
     function appendBadge(cell, username, badge) {
@@ -58,9 +62,7 @@
                 break;
             }
         }
-        if (!inserted) {
-            cell.appendChild(badge);
-        }
+        if (!inserted) cell.appendChild(badge);
     }
 
     function scanDOM() {
@@ -79,18 +81,14 @@
             if (parts.length < 2 || !parts[1]) return;
             
             const username = parts[1].toLowerCase();
-            
             if (IGNORED_USERNAMES.has(username)) return;
 
             const followBtn = cell.querySelector('[data-testid$="-unfollow"]');
             const isFollowing = !!followBtn;
 
-            // 动态判断回关状态，应对异步渲染和多语言变体
             let isFollowedBy = false;
-            // 扩大搜索范围到 div 和 span
             const tags = cell.querySelectorAll('div, span');
             for (let tag of tags) {
-                // 剔除不可见的零宽字符，并统一转为小写
                 const text = tag.textContent.replace(/[\u200B-\u200D\uFEFF]/g, '').trim().toLowerCase();
                 if (followsYouTexts.has(text)) {
                     isFollowedBy = true;
@@ -98,7 +96,6 @@
                 }
             }
 
-            // 动态联合缓存键：任意状态发生改变都会立即打破缓存，强制重绘纠错
             const cacheKey = `${username}_${isFollowing}_${isFollowedBy}`;
             if (cell.dataset.radarScanned === cacheKey) return;
             
@@ -110,13 +107,11 @@
 
             cell.dataset.radarScanned = cacheKey;
 
-            // 如果已经取关，或者是互关状态，从列表中剔除并跳过
             if (!isFollowing || isFollowedBy) {
                 unfollowersSet.delete(username);
                 return;
             }
 
-            // 确认为单向关注（未回关）
             unfollowersSet.add(username);
             cell.style.border = '2px dashed #f91880';
             cell.style.backgroundColor = 'rgba(249, 24, 128, 0.04)';
@@ -124,7 +119,7 @@
             
             const badge = document.createElement('div');
             badge.className = 'x-radar-badge-cell';
-            badge.innerText = '💔 未回关';
+            badge.innerText = i18n.badgeText;
             badge.style.cssText = 'color: #f91880; font-size: 13px; font-weight: bold; padding: 2px 8px; border: 1px solid #f91880; border-radius: 999px; margin-left: 8px; display: inline-flex; background: white; z-index: 99;';
             appendBadge(cell, username, badge);
         });
